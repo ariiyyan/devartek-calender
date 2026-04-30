@@ -18,8 +18,11 @@ http://127.0.0.1:3000/
 
 - Calendar dashboard with monthly bookings
 - Public booking page at `/?book=1#booking`
-- Meeting types with custom durations
+- User-chosen schedule title and duration
+- Optional meeting templates for repeated booking types
+- Single-day and multi-day bookings for trips or longer work
 - Working days, working hours, and buffers
+- Overlap protection with an optional warning-based override
 - Single-day and multi-day blocked dates for time off
 - Booking cancellation
 - `.ics` export for calendar apps

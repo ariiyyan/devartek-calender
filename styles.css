@@ -447,7 +447,11 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
-  margin-bottom: 20px;
+}
+
+.schedule-builder {
+  display: grid;
+  gap: 14px;
 }
 
 .service-option {
@@ -506,8 +510,22 @@ h2 {
   display: none;
 }
 
-.range-field.active {
+.range-field.active,
+.multi-day-field.active {
   display: grid;
+}
+
+.multi-day-field {
+  display: none;
+}
+
+.warning-toggle {
+  margin-top: 2px;
+}
+
+.warning-copy {
+  display: block;
+  color: var(--warn);
 }
 
 .booking-form,

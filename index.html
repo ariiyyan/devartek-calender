@@ -101,17 +101,43 @@
                   <span id="hostTimezonePreview">Local timezone</span>
                 </div>
               </div>
-              <div class="service-picker" id="servicePicker"></div>
-              <div class="booking-picker">
-                <div>
-                  <label for="bookingDate">Date</label>
-                  <input id="bookingDate" type="date" />
-                  <small>Only available working days will show times.</small>
+              <div class="schedule-builder">
+                <div class="field">
+                  <label for="bookingTitle">Schedule title</label>
+                  <input id="bookingTitle" required placeholder="Business trip" />
+                  <small>Choose exactly what this booking is for.</small>
                 </div>
-                <div>
-                  <label for="bookingTime">Time</label>
-                  <select id="bookingTime"></select>
-                  <small id="slotHelp">Choose a date to see open times.</small>
+                <div class="service-picker" id="servicePicker"></div>
+                <label class="range-toggle" for="bookingRangeToggle">
+                  <input id="bookingRangeToggle" type="checkbox" />
+                  <span>Book more than one day</span>
+                </label>
+                <div class="booking-picker">
+                  <div class="field">
+                    <label for="bookingDate">Start date</label>
+                    <input id="bookingDate" type="date" required />
+                    <small>Single-day bookings follow your working days.</small>
+                  </div>
+                  <div class="field">
+                    <label for="bookingTime">Start time</label>
+                    <input id="bookingTime" type="time" required />
+                    <small id="slotHelp">Choose the schedule time.</small>
+                  </div>
+                  <div class="field single-duration-field" id="durationField">
+                    <label for="bookingDuration">Duration</label>
+                    <input id="bookingDuration" type="number" min="5" step="5" value="30" required />
+                    <small>Minutes for a normal booking.</small>
+                  </div>
+                  <div class="field multi-day-field" id="bookingEndDateField">
+                    <label for="bookingEndDate">End date</label>
+                    <input id="bookingEndDate" type="date" />
+                    <small>Use this for trips and multi-day work.</small>
+                  </div>
+                  <div class="field multi-day-field" id="bookingEndTimeField">
+                    <label for="bookingEndTime">End time</label>
+                    <input id="bookingEndTime" type="time" />
+                    <small>When the multi-day booking ends.</small>
+                  </div>
                 </div>
               </div>
             </section>
@@ -203,14 +229,19 @@
                   <input id="bufferMinutes" type="number" min="0" step="5" required />
                 </div>
               </div>
+              <label class="range-toggle warning-toggle" for="allowOverlap">
+                <input id="allowOverlap" type="checkbox" />
+                <span>Allow overlapping schedules</span>
+              </label>
+              <small class="warning-copy">Keep this off to prevent conflicts. Turn it on only when you intentionally want double-booking.</small>
               <button class="primary-button" type="submit">Save availability</button>
             </form>
 
             <section class="settings-panel services-panel">
               <div class="panel-header compact">
                 <div>
-                  <p class="label">Meeting types</p>
-                  <h2>Services</h2>
+                  <p class="label">Optional templates</p>
+                  <h2>Saved schedules</h2>
                 </div>
               </div>
               <form class="service-form" id="serviceForm">

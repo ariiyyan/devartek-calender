@@ -13,13 +13,10 @@ const defaultState = {
     days: [1, 2, 3, 4, 5],
     start: "09:00",
     end: "17:00",
-    buffer: 10
+    buffer: 10,
+    allowOverlap: false
   },
-  services: [
-    { id: createId(), name: "Discovery call", duration: 30 },
-    { id: createId(), name: "Project planning", duration: 45 },
-    { id: createId(), name: "Technical consultation", duration: 60 }
-  ],
+  services: [],
   bookings: [],
   blockedDates: []
 };
@@ -29,7 +26,7 @@ let apiAvailable = false;
 const isPublicBooking = new URLSearchParams(location.search).has("book");
 let visibleDate = startOfMonth(new Date());
 let selectedDate = toDateKey(new Date());
-let selectedServiceId = state.services[0]?.id || "";
+let selectedServiceId = "custom";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -42,8 +39,13 @@ const elements = {
   agendaList: $("#agendaList"),
   emptyAgenda: $("#emptyAgenda"),
   servicePicker: $("#servicePicker"),
+  bookingTitle: $("#bookingTitle"),
   bookingDate: $("#bookingDate"),
   bookingTime: $("#bookingTime"),
+  bookingDuration: $("#bookingDuration"),
+  bookingRangeToggle: $("#bookingRangeToggle"),
+  bookingEndDate: $("#bookingEndDate"),
+  bookingEndTime: $("#bookingEndTime"),
   slotHelp: $("#slotHelp"),
   bookingForm: $("#bookingForm"),
   bookingError: $("#bookingError"),
@@ -57,6 +59,7 @@ const elements = {
   startTime: $("#startTime"),
   endTime: $("#endTime"),
   bufferMinutes: $("#bufferMinutes"),
+  allowOverlap: $("#allowOverlap"),
   serviceList: $("#serviceList"),
   blockedList: $("#blockedList"),
   publicLink: $("#publicLink")
@@ -113,8 +116,8 @@ async function syncFromServer() {
     const serverState = await response.json();
     if (serverState) {
       state = normalizeState(serverState);
-      if (!state.services.some((service) => service.id === selectedServiceId)) {
-        selectedServiceId = state.services[0]?.id || "";
+      if (selectedServiceId !== "custom" && !state.services.some((service) => service.id === selectedServiceId)) {
+        selectedServiceId = "custom";
       }
       renderAll();
       applyInitialRoute();
@@ -156,6 +159,56 @@ function timeToMinutes(time) {
 function formatTime(time) {
   const [hours, minutes] = time.split(":").map(Number);
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, hours, minutes));
+}
+
+function makeDateTime(dateKey, time) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes);
+}
+
+function addMinutes(date, minutes) {
+  return new Date(date.getTime() + Number(minutes) * 60_000);
+}
+
+function getBookingStart(booking) {
+  return makeDateTime(booking.date, booking.time);
+}
+
+function getBookingEnd(booking) {
+  if (booking.endDate && booking.endTime) return makeDateTime(booking.endDate, booking.endTime);
+  return addMinutes(getBookingStart(booking), booking.duration);
+}
+
+function bookingOccursOnDate(booking, dateKey) {
+  const dayStart = makeDateTime(dateKey, "00:00");
+  const dayEnd = makeDateTime(dateKey, "23:59");
+  return getBookingStart(booking) <= dayEnd && getBookingEnd(booking) >= dayStart;
+}
+
+function formatBookingRange(booking) {
+  const startDate = parseDateKey(booking.date);
+  const endDateKey = booking.endDate || toDateKey(getBookingEnd(booking));
+  const sameDate = booking.date === endDateKey;
+  if (sameDate) return `${formatTime(booking.time)} to ${formatTime(toDateTimeKey(getBookingEnd(booking)).time)}`;
+  return `${longDate.format(startDate)} ${formatTime(booking.time)} to ${longDate.format(parseDateKey(endDateKey))} ${formatTime(booking.endTime || toDateTimeKey(getBookingEnd(booking)).time)}`;
+}
+
+function formatBookingDuration(booking) {
+  const minutes = Math.max(0, Math.round((getBookingEnd(booking) - getBookingStart(booking)) / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1440 && minutes % 60 === 0) return `${minutes / 60} hr`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.round((minutes % 1440) / 60);
+  return hours ? `${days} day${days === 1 ? "" : "s"} ${hours} hr` : `${days} day${days === 1 ? "" : "s"}`;
+}
+
+function toDateTimeKey(date) {
+  return {
+    date: toDateKey(date),
+    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+  };
 }
 
 function showToast(message) {
@@ -203,7 +256,7 @@ function renderCalendar() {
     const date = new Date(firstGridDate);
     date.setDate(firstGridDate.getDate() + index);
     const key = toDateKey(date);
-    const bookings = state.bookings.filter((booking) => booking.date === key);
+    const bookings = state.bookings.filter((booking) => bookingOccursOnDate(booking, key));
     const button = document.createElement("button");
     button.className = "day-cell";
     button.type = "button";
@@ -214,7 +267,7 @@ function renderCalendar() {
     bookings.slice(0, 3).forEach((booking) => {
       const chip = document.createElement("span");
       chip.className = "booking-chip";
-      chip.textContent = `${formatTime(booking.time)} ${booking.name}`;
+      chip.textContent = `${formatTime(booking.time)} ${booking.serviceName}`;
       button.appendChild(chip);
     });
     if (bookings.length > 3) {
@@ -235,8 +288,8 @@ function renderCalendar() {
 function renderAgenda() {
   const date = parseDateKey(selectedDate);
   const bookings = state.bookings
-    .filter((booking) => booking.date === selectedDate)
-    .sort((a, b) => a.time.localeCompare(b.time));
+    .filter((booking) => bookingOccursOnDate(booking, selectedDate))
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 
   elements.selectedDateLabel.textContent = longDate.format(date);
   elements.emptyAgenda.style.display = bookings.length ? "none" : "grid";
@@ -247,7 +300,7 @@ function renderAgenda() {
     item.className = "agenda-item";
     item.innerHTML = `
       <strong>${escapeHtml(booking.name)}</strong>
-      <span class="agenda-meta">${formatTime(booking.time)} / ${booking.serviceName} / ${booking.duration} min</span>
+      <span class="agenda-meta">${formatBookingRange(booking)} / ${escapeHtml(booking.serviceName)} / ${formatBookingDuration(booking)}</span>
       <span class="agenda-meta">${escapeHtml(booking.email)}</span>
       ${booking.reminderMinutes ? `<span class="agenda-meta">Reminder ${formatReminder(booking.reminderMinutes)} / ${escapeHtml(booking.reminderEmail || booking.email)}</span>` : ""}
       ${booking.notes ? `<span class="agenda-meta">${escapeHtml(booking.notes)}</span>` : ""}
@@ -269,16 +322,24 @@ function renderAgenda() {
 
 function renderServicePicker() {
   if (!state.services.length) {
-    selectedServiceId = "";
-    elements.servicePicker.innerHTML = `<div class="empty-state"><strong>No services</strong><span>Add one in Setup.</span></div>`;
+    selectedServiceId = "custom";
+    elements.servicePicker.innerHTML = `<div class="empty-state"><strong>Custom schedule</strong><span>No preset is required. Choose the title and duration below.</span></div>`;
     return;
   }
 
-  if (!state.services.some((service) => service.id === selectedServiceId)) {
-    selectedServiceId = state.services[0].id;
-  }
-
   elements.servicePicker.innerHTML = "";
+  const custom = document.createElement("button");
+  custom.type = "button";
+  custom.className = "service-option";
+  custom.classList.toggle("active", selectedServiceId === "custom");
+  custom.innerHTML = "<strong>Custom schedule</strong><br><span>Choose title and duration</span>";
+  custom.addEventListener("click", () => {
+    selectedServiceId = "custom";
+    renderServicePicker();
+    renderBookingSlots();
+  });
+  elements.servicePicker.appendChild(custom);
+
   state.services.forEach((service) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -287,6 +348,8 @@ function renderServicePicker() {
     button.innerHTML = `<strong>${escapeHtml(service.name)}</strong><br><span>${service.duration} minutes</span>`;
     button.addEventListener("click", () => {
       selectedServiceId = service.id;
+      elements.bookingTitle.value = service.name;
+      elements.bookingDuration.value = service.duration;
       renderServicePicker();
       renderBookingSlots();
     });
@@ -319,6 +382,7 @@ function renderAvailability() {
   elements.startTime.value = state.availability.start;
   elements.endTime.value = state.availability.end;
   elements.bufferMinutes.value = state.availability.buffer;
+  elements.allowOverlap.checked = Boolean(state.availability.allowOverlap);
   elements.daysGrid.innerHTML = "";
 
   dayNames.forEach((day, index) => {
@@ -413,28 +477,33 @@ function formatDateRange(startKey, endKey) {
 
 function renderBookingSlots() {
   const dateKey = elements.bookingDate.value;
-  const service = state.services.find((item) => item.id === selectedServiceId);
-  elements.bookingTime.innerHTML = "";
+  const isMultiDay = elements.bookingRangeToggle.checked;
+  const duration = Number(elements.bookingDuration.value || 0);
 
-  if (!dateKey || !service) {
-    elements.slotHelp.textContent = service ? "Choose a date to see open times." : "Add a service in Setup first.";
+  if (!dateKey) {
+    elements.slotHelp.textContent = "Choose a start date.";
     return;
   }
 
-  const slots = getOpenSlots(dateKey, service.duration);
-  if (!slots.length) {
-    elements.bookingTime.innerHTML = `<option value="">No open times</option>`;
-    elements.slotHelp.textContent = "This day is outside your availability or already booked.";
+  if (state.availability.allowOverlap) {
+    elements.slotHelp.textContent = "Overlap is allowed. Double-check this schedule before confirming.";
     return;
   }
 
-  slots.forEach((slot) => {
-    const option = document.createElement("option");
-    option.value = slot;
-    option.textContent = formatTime(slot);
-    elements.bookingTime.appendChild(option);
-  });
-  elements.slotHelp.textContent = `${slots.length} open time${slots.length === 1 ? "" : "s"} available.`;
+  if (isMultiDay) {
+    elements.slotHelp.textContent = "Multi-day bookings will be checked for overlap when confirmed.";
+    return;
+  }
+
+  if (!duration) {
+    elements.slotHelp.textContent = "Enter a duration to check this time.";
+    return;
+  }
+
+  const slots = getOpenSlots(dateKey, duration);
+  elements.slotHelp.textContent = slots.length
+    ? `${slots.length} open start time${slots.length === 1 ? "" : "s"} available for this duration.`
+    : "No open time remains on this day for that duration.";
 }
 
 function getOpenSlots(dateKey, duration) {
@@ -449,27 +518,34 @@ function getOpenSlots(dateKey, duration) {
 
   for (let cursor = start; cursor + duration <= end; cursor += step) {
     const slot = minutesToTime(cursor);
-    const collides = hasScheduleConflict(dateKey, slot, duration);
+    const collides = hasScheduleConflict(dateKey, slot, dateKey, minutesToTime(cursor + duration));
     if (!collides) slots.push(slot);
   }
 
   return slots;
 }
 
-function hasScheduleConflict(dateKey, time, duration, ignoreBookingId = "") {
-  const start = timeToMinutes(time);
-  const end = start + duration;
+function isWithinAvailability(dateKey, startTime, endTime) {
+  const date = parseDateKey(dateKey);
+  const weekday = date.getDay();
+  if (!state.availability.days.includes(weekday) || state.blockedDates.includes(dateKey)) return false;
+  return timeToMinutes(startTime) >= timeToMinutes(state.availability.start) && timeToMinutes(endTime) <= timeToMinutes(state.availability.end);
+}
+
+function hasScheduleConflict(startDateKey, startTime, endDateKey, endTime, ignoreBookingId = "") {
+  const start = makeDateTime(startDateKey, startTime);
+  const end = makeDateTime(endDateKey, endTime);
   const buffer = Number(state.availability.buffer || 0);
+  const bufferedStart = addMinutes(start, -buffer);
+  const bufferedEnd = addMinutes(end, buffer);
 
   return state.bookings.some((booking) => {
-    if (booking.id === ignoreBookingId || booking.date !== dateKey) return false;
-    const bookingStart = timeToMinutes(booking.time);
-    const bookingEnd = bookingStart + booking.duration;
-    return start < bookingEnd + buffer && end + buffer > bookingStart;
+    if (booking.id === ignoreBookingId) return false;
+    return bufferedStart < getBookingEnd(booking) && bufferedEnd > getBookingStart(booking);
   });
 }
 
-function addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, service }) {
+function addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, endDate, endTime, service }) {
   state.bookings.push({
     id: createId(),
     name,
@@ -479,6 +555,8 @@ function addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, 
     notes,
     date,
     time,
+    endDate,
+    endTime,
     serviceId: service.id,
     serviceName: service.name,
     duration: service.duration,
@@ -516,7 +594,8 @@ function exportIcs() {
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Devartek Calendar//Self Hosted//EN"];
   state.bookings.forEach((booking) => {
     const start = buildIcsDate(booking.date, booking.time);
-    const end = buildIcsDate(booking.date, minutesToTime(timeToMinutes(booking.time) + booking.duration));
+    const endKey = toDateTimeKey(getBookingEnd(booking));
+    const end = buildIcsDate(endKey.date, endKey.time);
     lines.push(
       "BEGIN:VEVENT",
       `UID:${booking.id}@devartek-calendar`,
@@ -618,48 +697,101 @@ function attachEvents() {
     showToast(link);
   });
   elements.bookingDate.addEventListener("change", renderBookingSlots);
+  elements.bookingTime.addEventListener("change", renderBookingSlots);
+  elements.bookingDuration.addEventListener("input", renderBookingSlots);
+  elements.bookingRangeToggle.addEventListener("change", (event) => {
+    const isMultiDay = event.currentTarget.checked;
+    $("#bookingEndDateField").classList.toggle("active", isMultiDay);
+    $("#bookingEndTimeField").classList.toggle("active", isMultiDay);
+    $("#durationField").style.display = isMultiDay ? "none" : "grid";
+    elements.bookingEndDate.required = isMultiDay;
+    elements.bookingEndTime.required = isMultiDay;
+    elements.bookingDuration.required = !isMultiDay;
+    if (!isMultiDay) {
+      elements.bookingEndDate.value = "";
+      elements.bookingEndTime.value = "";
+    }
+    renderBookingSlots();
+  });
 
   elements.bookingForm.addEventListener("submit", (event) => {
     event.preventDefault();
     elements.bookingError.textContent = "";
-    const service = state.services.find((item) => item.id === selectedServiceId);
+    const savedService = state.services.find((item) => item.id === selectedServiceId);
+    const title = elements.bookingTitle.value.trim();
     const date = elements.bookingDate.value;
     const time = elements.bookingTime.value;
+    const isMultiDay = elements.bookingRangeToggle.checked;
+    const duration = Number(elements.bookingDuration.value);
+    const endDate = isMultiDay ? elements.bookingEndDate.value : date;
+    const singleEndMinutes = time ? timeToMinutes(time) + duration : 0;
+    const endTime = isMultiDay ? elements.bookingEndTime.value : minutesToTime(singleEndMinutes);
     const name = $("#guestName").value.trim();
     const email = $("#guestEmail").value.trim();
     const reminderEmail = $("#reminderEmail").value.trim() || email;
     const reminderMinutes = Number($("#reminderMinutes").value);
     const notes = $("#guestNotes").value.trim();
 
-    if (!service || !date || !time || !name || !email) {
-      elements.bookingError.textContent = "Choose a service, date, time, and enter visitor details.";
+    if (!title || !date || !time || !endDate || !endTime || !name || !email) {
+      elements.bookingError.textContent = "Enter the schedule title, start, end, and visitor details.";
       return;
     }
 
-    if (!getOpenSlots(date, service.duration).includes(time)) {
-      elements.bookingError.textContent = "That time conflicts with another booking or is outside your availability. Pick another slot.";
-      renderBookingSlots();
+    if (!isMultiDay && (!duration || duration < 5)) {
+      elements.bookingError.textContent = "Enter a duration of at least 5 minutes.";
       return;
     }
 
-    if (hasScheduleConflict(date, time, service.duration)) {
+    if (!isMultiDay && singleEndMinutes > 1440) {
+      elements.bookingError.textContent = "Use the multi-day option for schedules that continue past midnight.";
+      return;
+    }
+
+    const startsAt = makeDateTime(date, time);
+    const endsAt = makeDateTime(endDate, endTime);
+    if (endsAt <= startsAt) {
+      elements.bookingError.textContent = "The end date and time must be after the start.";
+      return;
+    }
+
+    if (!isMultiDay && !isWithinAvailability(date, time, endTime)) {
+      elements.bookingError.textContent = "That time is outside your availability. Pick another time or change Setup.";
+      return;
+    }
+
+    if (!state.availability.allowOverlap && hasScheduleConflict(date, time, endDate, endTime)) {
       elements.bookingError.textContent = "That time overlaps another booking. Pick another slot.";
       renderBookingSlots();
       return;
     }
 
-    addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, service });
+    const allowedOverlapConflict = state.availability.allowOverlap && hasScheduleConflict(date, time, endDate, endTime);
+
+    const service = {
+      id: savedService?.id || "custom",
+      name: title,
+      duration: Math.max(5, Math.round((endsAt - startsAt) / 60_000))
+    };
+
+    addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, endDate, endTime, service });
     selectedDate = date;
     visibleDate = startOfMonth(parseDateKey(date));
     elements.bookingForm.reset();
+    elements.bookingRangeToggle.checked = false;
+    $("#bookingEndDateField").classList.remove("active");
+    $("#bookingEndTimeField").classList.remove("active");
+    $("#durationField").style.display = "grid";
+    elements.bookingEndDate.required = false;
+    elements.bookingEndTime.required = false;
+    elements.bookingDuration.required = true;
     renderAll();
     if (isPublicBooking) {
       setView("booking");
-      showToast("Booking confirmed");
+      showToast(allowedOverlapConflict ? "Booking confirmed with overlap warning" : "Booking confirmed");
       return;
     }
     setView("calendar");
-    showToast("Booking confirmed");
+    showToast(allowedOverlapConflict ? "Booking confirmed with overlap warning" : "Booking confirmed");
   });
 
   $("#profileForm").addEventListener("submit", (event) => {
@@ -679,6 +811,7 @@ function attachEvents() {
     state.availability.start = elements.startTime.value;
     state.availability.end = elements.endTime.value;
     state.availability.buffer = Number(elements.bufferMinutes.value);
+    state.availability.allowOverlap = elements.allowOverlap.checked;
     saveState();
     renderAll();
     showToast("Availability saved");
