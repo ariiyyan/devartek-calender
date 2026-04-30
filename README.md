@@ -1,0 +1,32 @@
+# Devartek Calendar
+
+A free, self-hosted scheduling app you can run without Calendly.
+
+## Run locally
+
+```bash
+node server.js
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000/
+```
+
+## What is included
+
+- Calendar dashboard with monthly bookings
+- Public booking page at `/?book=1#booking`
+- Meeting types with custom durations
+- Working days, working hours, and buffers
+- Blocked dates for time off
+- Booking cancellation
+- `.ics` export for calendar apps
+- Local JSON storage in `data.json`
+
+## Cost
+
+The app has no paid dependency and no npm package requirement. It stores data in a local `data.json` file when run through `server.js`. To accept bookings from other people, run this server somewhere they can reach, such as your own computer with a tunnel, a small VPS, or a free hosting setup that supports Node.
+
+For public hosting, set `HOST=0.0.0.0` so the server can receive outside traffic.

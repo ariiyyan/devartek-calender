@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Devartek Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">DC</div>
+          <div>
+            <strong>Devartek Calendar</strong>
+            <span>Self-hosted scheduler</span>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Primary">
+          <button class="nav-item active" data-view="calendar" type="button">
+            <span class="icon" aria-hidden="true">□</span>
+            Calendar
+          </button>
+          <button class="nav-item" data-view="booking" type="button">
+            <span class="icon" aria-hidden="true">↗</span>
+            Booking page
+          </button>
+          <button class="nav-item" data-view="settings" type="button">
+            <span class="icon" aria-hidden="true">..</span>
+            Setup
+          </button>
+        </nav>
+
+        <div class="mini-panel">
+          <span class="label">Public page</span>
+          <p id="publicLink">Open booking page from this device.</p>
+          <button class="ghost-button" id="copyLink" type="button">Copy link</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">No subscription. No vendor lock-in.</p>
+            <h1>Book meetings on your own calendar.</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="exportIcs" type="button">Export .ics</button>
+            <button class="primary-button" id="newBooking" type="button">Add booking</button>
+          </div>
+        </header>
+
+        <section class="view active" id="calendarView" aria-label="Calendar dashboard">
+          <div class="dashboard-grid">
+            <section class="calendar-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="label">Month view</p>
+                  <h2 id="monthLabel">Calendar</h2>
+                </div>
+                <div class="segmented">
+                  <button id="prevMonth" type="button" aria-label="Previous month">&lt;</button>
+                  <button id="todayButton" type="button">Today</button>
+                  <button id="nextMonth" type="button" aria-label="Next month">&gt;</button>
+                </div>
+              </div>
+              <div class="weekdays" aria-hidden="true">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+              </div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+            </section>
+
+            <aside class="agenda-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="label">Selected day</p>
+                  <h2 id="selectedDateLabel">Today</h2>
+                </div>
+              </div>
+              <div class="empty-state" id="emptyAgenda">
+                <strong>No bookings yet</strong>
+                <span>Available slots are ready for visitors.</span>
+              </div>
+              <div class="agenda-list" id="agendaList"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="bookingView" aria-label="Booking page">
+          <div class="booking-layout">
+            <section class="booking-card">
+              <div class="profile-strip">
+                <div class="profile-photo" aria-hidden="true"></div>
+                <div>
+                  <p class="label">Book with</p>
+                  <h2 id="hostNamePreview">Devartek</h2>
+                  <span id="hostTimezonePreview">Local timezone</span>
+                </div>
+              </div>
+              <div class="service-picker" id="servicePicker"></div>
+              <div class="booking-picker">
+                <div>
+                  <label for="bookingDate">Date</label>
+                  <input id="bookingDate" type="date" />
+                  <small>Only available working days will show times.</small>
+                </div>
+                <div>
+                  <label for="bookingTime">Time</label>
+                  <select id="bookingTime"></select>
+                  <small id="slotHelp">Choose a date to see open times.</small>
+                </div>
+              </div>
+            </section>
+
+            <form class="booking-form" id="bookingForm">
+              <div class="form-heading">
+                <p class="label">Visitor details</p>
+                <h2>Reserve a time</h2>
+              </div>
+              <div class="field">
+                <label for="guestName">Name</label>
+                <input id="guestName" autocomplete="name" required placeholder="Mina Calder" />
+                <small>Shown on your booking list.</small>
+              </div>
+              <div class="field">
+                <label for="guestEmail">Email</label>
+                <input id="guestEmail" autocomplete="email" type="email" required placeholder="mina@example.com" />
+                <small>Used in the calendar invite file.</small>
+              </div>
+              <div class="field">
+                <label for="guestNotes">Notes</label>
+                <textarea id="guestNotes" rows="4" placeholder="What should we prepare?"></textarea>
+              </div>
+              <p class="form-error" id="bookingError" role="alert"></p>
+              <button class="primary-button wide" type="submit">Confirm booking</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="view" id="settingsView" aria-label="Calendar setup">
+          <div class="settings-grid">
+            <form class="settings-panel" id="profileForm">
+              <div class="panel-header compact">
+                <div>
+                  <p class="label">Profile</p>
+                  <h2>Your booking page</h2>
+                </div>
+              </div>
+              <div class="field">
+                <label for="hostName">Display name</label>
+                <input id="hostName" required />
+              </div>
+              <div class="field">
+                <label for="hostEmail">Calendar email</label>
+                <input id="hostEmail" type="email" required />
+              </div>
+              <div class="field">
+                <label for="timezone">Timezone label</label>
+                <input id="timezone" required />
+              </div>
+              <button class="primary-button" type="submit">Save profile</button>
+            </form>
+
+            <form class="settings-panel" id="availabilityForm">
+              <div class="panel-header compact">
+                <div>
+                  <p class="label">Availability</p>
+                  <h2>Working hours</h2>
+                </div>
+              </div>
+              <div class="days-grid" id="daysGrid"></div>
+              <div class="time-row">
+                <div class="field">
+                  <label for="startTime">Start</label>
+                  <input id="startTime" type="time" required />
+                </div>
+                <div class="field">
+                  <label for="endTime">End</label>
+                  <input id="endTime" type="time" required />
+                </div>
+                <div class="field">
+                  <label for="bufferMinutes">Buffer</label>
+                  <input id="bufferMinutes" type="number" min="0" step="5" required />
+                </div>
+              </div>
+              <button class="primary-button" type="submit">Save availability</button>
+            </form>
+
+            <section class="settings-panel services-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="label">Meeting types</p>
+                  <h2>Services</h2>
+                </div>
+              </div>
+              <form class="service-form" id="serviceForm">
+                <input id="serviceName" placeholder="Strategy call" required />
+                <input id="serviceDuration" type="number" min="10" step="5" placeholder="30" required />
+                <button class="primary-button" type="submit">Add</button>
+              </form>
+              <div class="service-list" id="serviceList"></div>
+            </section>
+
+            <section class="settings-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="label">Blocked dates</p>
+                  <h2>Time off</h2>
+                </div>
+              </div>
+              <form class="service-form" id="blockForm">
+                <input id="blockDate" type="date" required />
+                <button class="primary-button" type="submit">Block</button>
+              </form>
+              <div class="blocked-list" id="blockedList"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
