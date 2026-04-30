@@ -20,7 +20,7 @@ http://127.0.0.1:3000/
 - Public booking page at `/?book=1#booking`
 - Meeting types with custom durations
 - Working days, working hours, and buffers
-- Blocked dates for time off
+- Single-day and multi-day blocked dates for time off
 - Booking cancellation
 - `.ics` export for calendar apps
 - Per-booking reminder email and reminder timing in exported invites

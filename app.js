@@ -346,23 +346,69 @@ function renderBlockedDates() {
     return;
   }
 
-  state.blockedDates.sort().forEach((dateKey) => {
+  groupDateRanges(state.blockedDates).forEach((range) => {
     const item = document.createElement("article");
     item.className = "blocked-item";
-    item.innerHTML = `<span>${longDate.format(parseDateKey(dateKey))}</span>`;
+    item.innerHTML = `<span>${formatDateRange(range.start, range.end)}</span>`;
     const remove = document.createElement("button");
     remove.className = "delete-button";
     remove.type = "button";
     remove.textContent = "Unblock";
     remove.addEventListener("click", () => {
-      state.blockedDates = state.blockedDates.filter((blockedDate) => blockedDate !== dateKey);
+      const datesToRemove = new Set(getDateRange(range.start, range.end));
+      state.blockedDates = state.blockedDates.filter((blockedDate) => !datesToRemove.has(blockedDate));
       saveState();
       renderAll();
-      showToast("Date unblocked");
+      showToast(range.start === range.end ? "Date unblocked" : "Date range unblocked");
     });
     item.appendChild(remove);
     elements.blockedList.appendChild(item);
   });
+}
+
+function getDateRange(startKey, endKey) {
+  const start = parseDateKey(startKey);
+  const end = parseDateKey(endKey || startKey);
+  const dates = [];
+  const cursor = start <= end ? start : end;
+  const last = start <= end ? end : start;
+
+  while (cursor <= last) {
+    dates.push(toDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function groupDateRanges(dateKeys) {
+  const uniqueDates = [...new Set(dateKeys)].sort();
+  const ranges = [];
+
+  uniqueDates.forEach((dateKey) => {
+    const lastRange = ranges.at(-1);
+    if (!lastRange) {
+      ranges.push({ start: dateKey, end: dateKey });
+      return;
+    }
+
+    const nextExpected = parseDateKey(lastRange.end);
+    nextExpected.setDate(nextExpected.getDate() + 1);
+    if (toDateKey(nextExpected) === dateKey) {
+      lastRange.end = dateKey;
+      return;
+    }
+
+    ranges.push({ start: dateKey, end: dateKey });
+  });
+
+  return ranges;
+}
+
+function formatDateRange(startKey, endKey) {
+  const start = longDate.format(parseDateKey(startKey));
+  if (startKey === endKey) return start;
+  return `${start} to ${longDate.format(parseDateKey(endKey))}`;
 }
 
 function renderBookingSlots() {
@@ -650,15 +696,30 @@ function attachEvents() {
     showToast("Service added");
   });
 
+  $("#blockRangeToggle").addEventListener("change", (event) => {
+    const isRange = event.currentTarget.checked;
+    $("#blockEndField").classList.toggle("active", isRange);
+    $("#blockEndDate").required = isRange;
+    if (!isRange) $("#blockEndDate").value = "";
+  });
+
   $("#blockForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    const date = $("#blockDate").value;
-    if (!date || state.blockedDates.includes(date)) return;
-    state.blockedDates.push(date);
+    const startDate = $("#blockDate").value;
+    const isRange = $("#blockRangeToggle").checked;
+    const endDate = isRange ? $("#blockEndDate").value : startDate;
+    if (!startDate || !endDate) return;
+
+    const existingDates = new Set(state.blockedDates);
+    const datesToAdd = getDateRange(startDate, endDate);
+    datesToAdd.forEach((date) => existingDates.add(date));
+    state.blockedDates = [...existingDates].sort();
     event.currentTarget.reset();
+    $("#blockEndField").classList.remove("active");
+    $("#blockEndDate").required = false;
     saveState();
     renderAll();
-    showToast("Date blocked");
+    showToast(datesToAdd.length === 1 ? "Date blocked" : `${datesToAdd.length} days blocked`);
   });
 }
 

@@ -228,8 +228,21 @@
                   <h2>Time off</h2>
                 </div>
               </div>
-              <form class="service-form" id="blockForm">
-                <input id="blockDate" type="date" required />
+              <form class="block-form" id="blockForm">
+                <label class="range-toggle" for="blockRangeToggle">
+                  <input id="blockRangeToggle" type="checkbox" />
+                  <span>Block more than one day</span>
+                </label>
+                <div class="block-date-grid">
+                  <div class="field">
+                    <label for="blockDate">Start date</label>
+                    <input id="blockDate" type="date" required />
+                  </div>
+                  <div class="field range-field" id="blockEndField">
+                    <label for="blockEndDate">End date</label>
+                    <input id="blockEndDate" type="date" />
+                  </div>
+                </div>
                 <button class="primary-button" type="submit">Block</button>
               </form>
               <div class="blocked-list" id="blockedList"></div>

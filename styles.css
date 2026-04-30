@@ -477,6 +477,39 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.block-form {
+  display: grid;
+  gap: 12px;
+}
+
+.block-date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.range-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: var(--text);
+}
+
+.range-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.range-field {
+  display: none;
+}
+
+.range-field.active {
+  display: grid;
+}
+
 .booking-form,
 .settings-panel,
 .field {
@@ -640,6 +673,7 @@ textarea {
   .topbar,
   .panel-header,
   .booking-picker,
+  .block-date-grid,
   .time-row,
   .service-form {
     grid-template-columns: 1fr;
