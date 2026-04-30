@@ -17,7 +17,8 @@ http://127.0.0.1:3000/
 ## What is included
 
 - Calendar dashboard with monthly bookings
-- Public booking page at `/?book=1#booking`
+- Public booking area at `/?book=1#booking`
+- Same-page booking from the calendar dashboard
 - User-chosen schedule title and duration
 - Optional meeting templates for repeated booking types
 - Single-day and multi-day bookings for trips or longer work

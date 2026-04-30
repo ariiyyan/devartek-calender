@@ -246,6 +246,10 @@ h2 {
   align-items: start;
 }
 
+.inline-booking {
+  margin-top: 18px;
+}
+
 .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -642,7 +646,9 @@ textarea {
 }
 
 .public-mode .sidebar,
-.public-mode .topbar {
+.public-mode .topbar,
+.public-mode .calendar-panel,
+.public-mode .agenda-panel {
   display: none;
 }
 

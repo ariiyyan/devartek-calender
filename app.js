@@ -219,13 +219,27 @@ function showToast(message) {
 }
 
 function setView(viewName) {
+  if (viewName === "booking") {
+    setView("calendar");
+    focusBookingForm();
+    return;
+  }
+
   elements.navItems.forEach((item) => item.classList.toggle("active", item.dataset.view === viewName));
   elements.views.forEach((view) => view.classList.toggle("active", view.id === `${viewName}View`));
-  if (viewName === "booking") renderBookingSlots();
+  if (viewName === "calendar") renderBookingSlots();
+}
+
+function focusBookingForm() {
+  $("#bookingSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.setTimeout(() => elements.bookingTitle.focus(), 220);
 }
 
 function renderAll() {
   renderProfile();
+  if (!elements.bookingDate.value) {
+    elements.bookingDate.value = selectedDate;
+  }
   renderCalendar();
   renderAgenda();
   renderServices();
@@ -278,8 +292,13 @@ function renderCalendar() {
     }
     button.addEventListener("click", () => {
       selectedDate = key;
+      elements.bookingDate.value = key;
+      if (elements.bookingRangeToggle.checked && !elements.bookingEndDate.value) {
+        elements.bookingEndDate.value = key;
+      }
       renderCalendar();
       renderAgenda();
+      renderBookingSlots();
     });
     elements.calendarGrid.appendChild(button);
   }
@@ -682,10 +701,17 @@ function attachEvents() {
   $("#todayButton").addEventListener("click", () => {
     visibleDate = startOfMonth(new Date());
     selectedDate = toDateKey(new Date());
+    elements.bookingDate.value = selectedDate;
     renderCalendar();
     renderAgenda();
+    renderBookingSlots();
   });
-  $("#newBooking").addEventListener("click", () => setView("booking"));
+  $("#newBooking").addEventListener("click", () => {
+    setView("calendar");
+    elements.bookingDate.value = selectedDate;
+    focusBookingForm();
+    renderBookingSlots();
+  });
   $("#exportIcs").addEventListener("click", exportIcs);
   $("#copyLink").addEventListener("click", async () => {
     const link = getBookingLink();
@@ -696,7 +722,15 @@ function attachEvents() {
     }
     showToast(link);
   });
-  elements.bookingDate.addEventListener("change", renderBookingSlots);
+  elements.bookingDate.addEventListener("change", () => {
+    if (elements.bookingDate.value) {
+      selectedDate = elements.bookingDate.value;
+      visibleDate = startOfMonth(parseDateKey(selectedDate));
+      renderCalendar();
+      renderAgenda();
+    }
+    renderBookingSlots();
+  });
   elements.bookingTime.addEventListener("change", renderBookingSlots);
   elements.bookingDuration.addEventListener("input", renderBookingSlots);
   elements.bookingRangeToggle.addEventListener("change", (event) => {
@@ -786,7 +820,8 @@ function attachEvents() {
     elements.bookingDuration.required = true;
     renderAll();
     if (isPublicBooking) {
-      setView("booking");
+      setView("calendar");
+      focusBookingForm();
       showToast(allowedOverlapConflict ? "Booking confirmed with overlap warning" : "Booking confirmed");
       return;
     }
@@ -864,12 +899,14 @@ syncFromServer();
 function applyInitialRoute() {
   if (isPublicBooking) {
     document.body.classList.add("public-mode");
-    setView("booking");
+    setView("calendar");
+    focusBookingForm();
     return;
   }
 
   if (location.hash === "#booking") {
-    setView("booking");
+    setView("calendar");
+    focusBookingForm();
   }
 }
 
