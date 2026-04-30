@@ -132,6 +132,22 @@
                 <small>Used in the calendar invite file.</small>
               </div>
               <div class="field">
+                <label for="reminderEmail">Reminder email</label>
+                <input id="reminderEmail" autocomplete="email" type="email" placeholder="mina@example.com" />
+                <small>Leave empty to use the visitor email.</small>
+              </div>
+              <div class="field">
+                <label for="reminderMinutes">Reminder time</label>
+                <select id="reminderMinutes">
+                  <option value="0">No reminder</option>
+                  <option value="10">10 minutes before</option>
+                  <option value="30" selected>30 minutes before</option>
+                  <option value="60">1 hour before</option>
+                  <option value="1440">1 day before</option>
+                </select>
+                <small>Included when you export the calendar invite.</small>
+              </div>
+              <div class="field">
                 <label for="guestNotes">Notes</label>
                 <textarea id="guestNotes" rows="4" placeholder="What should we prepare?"></textarea>
               </div>

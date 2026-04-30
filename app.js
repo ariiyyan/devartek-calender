@@ -249,6 +249,7 @@ function renderAgenda() {
       <strong>${escapeHtml(booking.name)}</strong>
       <span class="agenda-meta">${formatTime(booking.time)} / ${booking.serviceName} / ${booking.duration} min</span>
       <span class="agenda-meta">${escapeHtml(booking.email)}</span>
+      ${booking.reminderMinutes ? `<span class="agenda-meta">Reminder ${formatReminder(booking.reminderMinutes)} / ${escapeHtml(booking.reminderEmail || booking.email)}</span>` : ""}
       ${booking.notes ? `<span class="agenda-meta">${escapeHtml(booking.notes)}</span>` : ""}
     `;
     const remove = document.createElement("button");
@@ -402,23 +403,33 @@ function getOpenSlots(dateKey, duration) {
 
   for (let cursor = start; cursor + duration <= end; cursor += step) {
     const slot = minutesToTime(cursor);
-    const collides = state.bookings.some((booking) => {
-      if (booking.date !== dateKey) return false;
-      const bookingStart = timeToMinutes(booking.time);
-      const bookingEnd = bookingStart + booking.duration + Number(state.availability.buffer || 0);
-      return cursor < bookingEnd && cursor + duration > bookingStart;
-    });
+    const collides = hasScheduleConflict(dateKey, slot, duration);
     if (!collides) slots.push(slot);
   }
 
   return slots;
 }
 
-function addBooking({ name, email, notes, date, time, service }) {
+function hasScheduleConflict(dateKey, time, duration, ignoreBookingId = "") {
+  const start = timeToMinutes(time);
+  const end = start + duration;
+  const buffer = Number(state.availability.buffer || 0);
+
+  return state.bookings.some((booking) => {
+    if (booking.id === ignoreBookingId || booking.date !== dateKey) return false;
+    const bookingStart = timeToMinutes(booking.time);
+    const bookingEnd = bookingStart + booking.duration;
+    return start < bookingEnd + buffer && end + buffer > bookingStart;
+  });
+}
+
+function addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, service }) {
   state.bookings.push({
     id: createId(),
     name,
     email,
+    reminderEmail,
+    reminderMinutes,
     notes,
     date,
     time,
@@ -428,6 +439,17 @@ function addBooking({ name, email, notes, date, time, service }) {
     createdAt: new Date().toISOString()
   });
   saveState();
+}
+
+function formatReminder(minutes) {
+  const value = Number(minutes);
+  if (!value) return "off";
+  if (value < 60) return `${value} minutes before`;
+  if (value === 60) return "1 hour before";
+  if (value === 1440) return "1 day before";
+  if (value % 1440 === 0) return `${value / 1440} days before`;
+  if (value % 60 === 0) return `${value / 60} hours before`;
+  return `${value} minutes before`;
 }
 
 function escapeHtml(value) {
@@ -456,11 +478,31 @@ function exportIcs() {
       `DTSTART:${start}`,
       `DTEND:${end}`,
       `SUMMARY:${icsText(`${booking.serviceName} with ${booking.name}`)}`,
-      `DESCRIPTION:${icsText(booking.notes || "Booked through Devartek Calendar")}`,
+      `DESCRIPTION:${icsText(buildIcsDescription(booking))}`,
       `ORGANIZER:MAILTO:${state.profile.email}`,
-      `ATTENDEE;CN=${icsText(booking.name)}:MAILTO:${booking.email}`,
-      "END:VEVENT"
+      `ATTENDEE;CN=${icsText(booking.name)}:MAILTO:${booking.email}`
     );
+    if (Number(booking.reminderMinutes) > 0) {
+      lines.push(
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        `DESCRIPTION:${icsText(`Reminder: ${booking.serviceName} with ${booking.name}`)}`,
+        `TRIGGER:-${icsDuration(booking.reminderMinutes)}`,
+        "END:VALARM"
+      );
+      if (booking.reminderEmail) {
+        lines.push(
+          "BEGIN:VALARM",
+          "ACTION:EMAIL",
+          `ATTENDEE:MAILTO:${booking.reminderEmail}`,
+          `SUMMARY:${icsText(`Reminder: ${booking.serviceName}`)}`,
+          `DESCRIPTION:${icsText(`Reminder for ${booking.serviceName} with ${booking.name}`)}`,
+          `TRIGGER:-${icsDuration(booking.reminderMinutes)}`,
+          "END:VALARM"
+        );
+      }
+    }
+    lines.push("END:VEVENT");
   });
   lines.push("END:VCALENDAR");
 
@@ -470,6 +512,22 @@ function exportIcs() {
   link.download = "devartek-bookings.ics";
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function buildIcsDescription(booking) {
+  const lines = [booking.notes || "Booked through Devartek Calendar"];
+  if (booking.reminderMinutes) {
+    lines.push(`Reminder: ${formatReminder(booking.reminderMinutes)}`);
+    lines.push(`Reminder email: ${booking.reminderEmail || booking.email}`);
+  }
+  return lines.join("\n");
+}
+
+function icsDuration(minutes) {
+  const value = Number(minutes);
+  if (value % 1440 === 0) return `P${value / 1440}D`;
+  if (value % 60 === 0) return `PT${value / 60}H`;
+  return `PT${value}M`;
 }
 
 function buildIcsDate(dateKey, time) {
@@ -523,6 +581,8 @@ function attachEvents() {
     const time = elements.bookingTime.value;
     const name = $("#guestName").value.trim();
     const email = $("#guestEmail").value.trim();
+    const reminderEmail = $("#reminderEmail").value.trim() || email;
+    const reminderMinutes = Number($("#reminderMinutes").value);
     const notes = $("#guestNotes").value.trim();
 
     if (!service || !date || !time || !name || !email) {
@@ -531,12 +591,18 @@ function attachEvents() {
     }
 
     if (!getOpenSlots(date, service.duration).includes(time)) {
-      elements.bookingError.textContent = "That time is no longer available. Pick another slot.";
+      elements.bookingError.textContent = "That time conflicts with another booking or is outside your availability. Pick another slot.";
       renderBookingSlots();
       return;
     }
 
-    addBooking({ name, email, notes, date, time, service });
+    if (hasScheduleConflict(date, time, service.duration)) {
+      elements.bookingError.textContent = "That time overlaps another booking. Pick another slot.";
+      renderBookingSlots();
+      return;
+    }
+
+    addBooking({ name, email, reminderEmail, reminderMinutes, notes, date, time, service });
     selectedDate = date;
     visibleDate = startOfMonth(parseDateKey(date));
     elements.bookingForm.reset();
