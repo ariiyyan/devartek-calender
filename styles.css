@@ -61,16 +61,12 @@ button {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 44px;
   height: 44px;
+  object-fit: contain;
   border-radius: var(--radius);
-  background: var(--text);
-  color: #f7faf5;
-  font-family: "Geist Mono", monospace;
-  font-size: 13px;
-  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid var(--line);
 }
 
 .brand strong,
@@ -440,10 +436,11 @@ h2 {
 .profile-photo {
   width: 72px;
   height: 72px;
+  object-fit: contain;
   border-radius: var(--radius);
-  background:
-    linear-gradient(135deg, rgba(65, 107, 75, 0.2), transparent 54%),
-    linear-gradient(45deg, #253124, #68866b);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  padding: 6px;
 }
 
 .service-picker {
